@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hillary's 3-Week Exam System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b0f;
+  --surface: #0e1318;
+  --surface2: #151c24;
+  --surface3: #1c2530;
+  --border: #1e2d3d;
+  --border2: #2a3d52;
+  --text: #d4e4f7;
+  --muted: #4a6380;
+  --dim: #2a3d52;
+
+  /* Unit colors */
+  --anatomy: #e8624a;
+  --biochem: #4a9eff;
+  --physio: #4ecdc4;
+  --critical: #f7c948;
+  --faith: #a78bfa;
+
+  /* Status */
+  --done: #3dd68c;
+  --active: #4a9eff;
+  --pending: #2a3d52;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(74,158,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,158,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background:
+    radial-gradient(ellipse 60% 40% at 10% 10%, rgba(232,98,74,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 90% 90%, rgba(74,158,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 30% at 50% 50%, rgba(78,205,196,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+/* ── Header ── */
+.header { margin-bottom: 48px; }
+.header-eyebrow { font-size: 10px; letter-spacing: 0.4em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+.header-eyebrow::after { content: ''; flex: 1; height: 1px; background: linear-gradient(to right, var(--border), transparent); }
+.header h1 { font-family: 'Playfair Display', serif; font-size: clamp(36px, 7vw, 64px); font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text); }
+.header h1 em { font-style: italic; color: var(--anatomy); }
+.header-sub { margin-top: 14px; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; line-height: 1.8; }
+
+/* ── Countdown ── */
+.countdown-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 32px; display: flex; align-items: center; gap: 24px; }
+.countdown-num { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 900; color: var(--anatomy); line-height: 1; min-width: 80px; }
+.countdown-label { font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+.countdown-sub { font-size: 11px; color: var(--text); }
+.countdown-track { flex: 1; }
+.days-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 12px; }
+.day-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--border); transition: all 0.3s; }
+.day-dot.gone { background: var(--muted); opacity: 0.4; }
+.day-dot.today { background: var(--anatomy); box-shadow: 0 0 8px var(--anatomy); }
+.day-dot.remaining { background: var(--border2); }
+
+/* ── Stats ── */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 32px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 14px; text-align: center; }
+.stat-val { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; display: block; margin-bottom: 4px; }
+.stat-label { font-size: 9px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+
+/* ── Phase tabs ── */
+.phase-nav { display: flex; gap: 6px; margin-bottom: 28px; overflow-x: auto; padding-bottom: 4px; }
+.phase-nav::-webkit-scrollbar { display: none; }
+.phase-btn { padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+.phase-btn.active { background: var(--active); border-color: var(--active); color: white; }
+
+/* ── Week view ── */
+.week-section { margin-bottom: 36px; }
+.week-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.week-badge { font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 8px; }
+.week-1 .week-badge { background: rgba(232,98,74,0.15); color: var(--anatomy); border: 1px solid rgba(232,98,74,0.3); }
+.week-2 .week-badge { background: rgba(74,158,255,0.15); color: var(--biochem); border: 1px solid rgba(74,158,255,0.3); }
+.week-3 .week-badge { background: rgba(78,205,196,0.15); color: var(--physio); border: 1px solid rgba(78,205,196,0.3); }
+.week-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+.week-line { flex: 1; height: 1px; background: var(--border); }
+
+/* ── Day cards ── */
+.days-grid { display: flex; flex-direction: column; gap: 8px; }
+.day-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: border-color 0.2s; }
+.day-card.today-card { border-color: var(--active); box-shadow: 0 0 20px rgba(74,158,255,0.08); }
+.day-header { padding: 14px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.day-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--muted); min-width: 32px; }
+.day-card.today-card .day-num { color: var(--active); }
+.day-name { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.day-focus { font-size: 12px; color: var(--text); font-weight: 500; }
+.day-meta { flex: 1; }
+.day-progress-mini { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.mini-bar { width: 60px; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.mini-fill { height: 100%; background: var(--done); border-radius: 99px; transition: width 0.3s; }
+.mini-pct { font-size: 9px; color: var(--muted); min-width: 28px; text-align: right; }
+.expand-icon { font-size: 10px; color: var(--muted); transition: transform 0.2s; margin-left: 8px; }
+.day-card.expanded .expand-icon { transform: rotate(180deg); }
+
+/* ── Tasks ── */
+.day-tasks { display: none; padding: 0 18px 16px; border-top: 1px solid var(--border); }
+.day-card.expanded .day-tasks { display: block; padding-top: 14px; }
+.task { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 10px; margin-bottom: 6px; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; user-select: none; }
+.task:hover, .task:active { background: var(--surface2); }
+.task.done { opacity: 0.45; }
+.task.done .task-title { text-decoration: line-through; color: var(--muted); }
+.task-check { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border2); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: all 0.15s; }
+.task.done .task-check { background: var(--done); border-color: var(--done); color: var(--bg); }
+.task-body { flex: 1; }
+.task-title { font-size: 12px; color: var(--text); margin-bottom: 2px; line-height: 1.4; }
+.task-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.unit-pill { display: inline-block; font-size: 8px; padding: 2px 7px; border-radius: 99px; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; font-weight: 500; }
+.pill-anatomy { background: rgba(232,98,74,0.15); color: var(--anatomy); }
+.pill-biochem { background: rgba(74,158,255,0.15); color: var(--biochem); }
+.pill-physio { background: rgba(78,205,196,0.15); color: var(--physio); }
+.pill-critical { background: rgba(247,201,72,0.15); color: var(--critical); }
+.pill-faith { background: rgba(167,139,250,0.15); color: var(--faith); }
+.task-duration { font-size: 9px; color: var(--muted); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+
+/* ── Method box ── */
+.method-row { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+.method-tag { font-size: 9px; padding: 4px 10px; border-radius: 6px; background: var(--surface3); border: 1px solid var(--border2); color: var(--muted); letter-spacing: 0.05em; }
+
+/* ── Unit legend ── */
+.legend { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Rules ── */
+.rules-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-top: 32px; }
+.rules-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+.rule { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); line-height: 1.6; }
+.rule:last-child { border-bottom: none; }
+.rule-num { color: var(--anatomy); font-weight: 700; flex-shrink: 0; font-family: 'Playfair Display', serif; font-size: 14px; }
+
+/* ── Animations ── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.app > * { animation: fadeUp 0.5s ease both; }
+.app > *:nth-child(1) { animation-delay: 0s; }
+.app > *:nth-child(2) { animation-delay: 0.05s; }
+.app > *:nth-child(3) { animation-delay: 0.1s; }
+.app > *:nth-child(4) { animation-delay: 0.15s; }
+.app > *:nth-child(5) { animation-delay: 0.2s; }
+
+@keyframes checkPop { 0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)} }
+.pop { animation: checkPop 0.2s ease; }
+
+/* Mobile */
+@media (max-width: 500px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .countdown-num { font-size: 40px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    
+  <div style="margin-bottom:16px;animation:fadeUp 0.5s ease both;">
+    <button onclick="downloadApp()" style="background:transparent;border:1px solid #1e2d3d;border-radius:10px;padding:10px 18px;color:#4a6380;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;">
+      ⬇ Download as HTML file
+    </button>
+  </div>
+
+  <div class="header-eyebrow">3-Week Exam System</div>
+    <h1>Execution<br><em>Mode.</em></h1>
+    <div class="header-sub">
+      5 units · 21 days · anatomy, biochemistry &amp; physiology cannot be failed<br>
+      Methods: past questions · summaries · teaching out loud
+    </div>
+  </div>
+
+  <!-- Countdown -->
+  <div class="countdown-bar">
+    <div>
+      <div class="countdown-label">Days remaining</div>
+      <div class="countdown-num" id="days-left">21</div>
+    </div>
+    <div class="countdown-track">
+      <div class="countdown-sub" id="countdown-sub">Exam in 3 weeks — every day counts</div>
+      <div class="days-dots" id="days-dots"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><span class="stat-val" id="stat-done" style="color:var(--done)">0</span><span class="stat-label">Tasks done</span></div>
+    <div class="stat"><span class="stat-val" id="stat-total" style="color:var(--text)">0</span><span class="stat-label">Total tasks</span></div>
+    <div class="stat"><span class="stat-val" id="stat-pct" style="color:var(--active)">0%</span><span class="stat-label">Complete</span></div>
+    <div class="stat"><span class="stat-val" id="stat-streak" style="color:var(--anatomy)">0</span><span class="stat-label">Day streak</span></div>
+  </div>
+
+  <!-- Unit legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--anatomy)"></div>Anatomy</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--biochem)"></div>Biochemistry</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--physio)"></div>Physiology</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--critical)"></div>Critical Thinking</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--faith)"></div>Faith &amp; Healing</div>
+  </div>
+
+  <!-- Phase nav -->
+  <div class="phase-nav" id="phase-nav">
+    <button class="phase-btn active" onclick="showWeek(1,this)">Week 1 — Foundation</button>
+    <button class="phase-btn" onclick="showWeek(2,this)">Week 2 — Depth</button>
+    <button class="phase-btn" onclick="showWeek(3,this)">Week 3 — Execution</button>
+  </div>
+
+  <!-- Weeks container -->
+  <div id="weeks-container"></div>
+
+  <!-- Rules -->
+  <div class="rules-box">
+    <div class="rules-title">The System Rules</div>
+    <div class="rule"><span class="rule-num">01</span><span>Never start a session without knowing exactly what you're studying. Read the task before you open the book.</span></div>
+    <div class="rule"><span class="rule-num">02</span><span>Active recall only — no passive re-reading. Close the notes and write what you remember. Then check.</span></div>
+    <div class="rule"><span class="rule-num">03</span><span>Past questions are the exam. Do them first to know what matters, then study backward from the gaps.</span></div>
+    <div class="rule"><span class="rule-num">04</span><span>Teach it out loud. If you can't explain it without notes, you don't know it well enough yet.</span></div>
+    <div class="rule"><span class="rule-num">05</span><span>Anatomy and physiology get double time. Biochemistry gets consistent daily exposure — not cramming.</span></div>
+    <div class="rule"><span class="rule-num">06</span><span>Critical thinking and faith &amp; healing are high ROI — less content, easier marks. Never skip them.</span></div>
+    <div class="rule"><span class="rule-num">07</span><span>Sleep is studying. The consolidation that happens at night is non-negotiable. 10 PM is not optional.</span></div>
+    <div class="rule"><span class="rule-num">08</span><span>A bad session still counts. Show up even on low-energy days. Consistency beats intensity.</span></div>
+  </div>
+
+</div>
+
+<script>
+// ── Study plan data ────────────────────────────────────────────────────────
+// 3 weeks, 7 days each, 4-5 focused tasks per day
+// Priority: Anatomy, Biochem, Physio (core) > Critical Thinking, Faith & Healing
+// Methods: past questions, summaries, teaching out loud
+
+const PLAN = {
+  1: { // Week 1 — Foundation & triage
+    label: "Week 1 — Foundation & Triage",
+    focus: "Map the terrain. Past questions first to find gaps. Build base notes on high-yield topics.",
+    days: [
+      {
+        day: 1, name: "Day 1",
+        focus: "Audit + Anatomy kickoff",
+        tasks: [
+          { id:"1-1", title:"Past questions audit — all 5 units", desc:"Get past papers for all units. Skim through them and mark topics that appear most frequently. This is your exam map.", unit:"critical", duration:"60 min" },
+          { id:"1-2", title:"Anatomy: Head & Neck overview", desc:"Read the Gray's overview of head and neck regions. Don't memorize — just build the map. Identify the 5 highest-yield topics from past questions.", unit:"anatomy", duration:"90 min" },
+          { id:"1-3", title:"Biochemistry: Water, buffers & pH", desc:"Summarize water properties and Henderson-Hasselbalch. Teach it out loud once when done.", unit:"biochem", duration:"60 min" },
+          { id:"1-4", title:"Faith & Healing: Core themes review", desc:"Skim through your notes/textbook. List the major topics and mark which ones appear in past questions.", unit:"faith", duration:"30 min" },
+        ]
+      },
+      {
+        day: 2, name: "Day 2",
+        focus: "Anatomy deep + Physio intro",
+        tasks: [
+          { id:"2-1", title:"Anatomy: Cranial nerves I–VI", desc:"CN I-VI — origin, course, function, clinical correlations. Use mnemonics. Draw the exit foramina from memory after reading.", unit:"anatomy", duration:"90 min" },
+          { id:"2-2", title:"Physiology: Cell membrane & transport", desc:"Active vs passive transport, Na-K ATPase, osmosis. Write a one-page summary without looking at notes.", unit:"physio", duration:"60 min" },
+          { id:"2-3", title:"Biochemistry: Carbohydrates — structure", desc:"Monosaccharides, disaccharides, polysaccharides. Reducing sugars. Draw glucose, fructose, galactose structures.", unit:"biochem", duration:"60 min" },
+          { id:"2-4", title:"Critical Thinking: Past questions x10", desc:"Do 10 past MCQs from critical thinking. Don't guess — reason through each one and write why.", unit:"critical", duration:"40 min" },
+        ]
+      },
+      {
+        day: 3, name: "Day 3",
+        focus: "Cranial nerves complete + biochem",
+        tasks: [
+          { id:"3-1", title:"Anatomy: Cranial nerves VII–XII", desc:"CN VII-XII — same framework. Special attention to CN VII (facial) and CN X (vagus) — highest yield.", unit:"anatomy", duration:"90 min" },
+          { id:"3-2", title:"Anatomy: Teach cranial nerves out loud", desc:"Close everything. Recite all 12 cranial nerves — type, function, clinical test, clinical lesion. Record yourself if possible.", unit:"anatomy", duration:"30 min" },
+          { id:"3-3", title:"Biochemistry: Carbohydrate metabolism", desc:"Glycolysis, gluconeogenesis — key enzymes and regulation points only. Past questions guide what depth to go.", unit:"biochem", duration:"75 min" },
+          { id:"3-4", title:"Physiology: Action potential", desc:"Resting potential, depolarization, repolarization, refractory periods. Draw the graph from memory.", unit:"physio", duration:"50 min" },
+        ]
+      },
+      {
+        day: 4, name: "Day 4",
+        focus: "Neck anatomy + proteins",
+        tasks: [
+          { id:"4-1", title:"Anatomy: Neck — triangles & fascia", desc:"Anterior/posterior triangles, contents, fascial layers. Draw and label both triangles from memory.", unit:"anatomy", duration:"90 min" },
+          { id:"4-2", title:"Biochemistry: Proteins — structure & function", desc:"Primary to quaternary structure, peptide bonds, denaturation. Teach the four levels out loud.", unit:"biochem", duration:"60 min" },
+          { id:"4-3", title:"Physiology: Nerve conduction & synapses", desc:"Myelinated vs unmyelinated, synaptic transmission, neurotransmitters. Past questions focus.", unit:"physio", duration:"60 min" },
+          { id:"4-4", title:"Faith & Healing: First topic deep dive", desc:"Take the highest-yield Faith & Healing topic from your audit. Write a full 1-page summary.", unit:"faith", duration:"40 min" },
+        ]
+      },
+      {
+        day: 5, name: "Day 5",
+        focus: "Orbit + lipids",
+        tasks: [
+          { id:"5-1", title:"Anatomy: Orbit & extraocular muscles", desc:"6 extraocular muscles, their nerve supply, actions. CN III palsy vs Horner's syndrome — clinical distinction.", unit:"anatomy", duration:"90 min" },
+          { id:"5-2", title:"Biochemistry: Lipids — classification & function", desc:"Saturated vs unsaturated, phospholipids, cholesterol. Biological roles. Summary + teach out loud.", unit:"biochem", duration:"60 min" },
+          { id:"5-3", title:"Physiology: Muscle physiology", desc:"Sliding filament theory, troponin-tropomyosin, excitation-contraction coupling. Draw the sarcomere.", unit:"physio", duration:"60 min" },
+          { id:"5-4", title:"Past questions: Anatomy x15", desc:"15 anatomy past MCQs. Every wrong answer → find the answer in Gray's and write a one-line explanation.", unit:"anatomy", duration:"45 min" },
+        ]
+      },
+      {
+        day: 6, name: "Day 6",
+        focus: "Consolidation day",
+        tasks: [
+          { id:"6-1", title:"Teach Week 1 anatomy out loud — full session", desc:"No notes. Talk through everything covered this week: cranial nerves, neck, orbit. Find the gaps.", unit:"anatomy", duration:"60 min" },
+          { id:"6-2", title:"Biochemistry: Nucleic acids overview", desc:"DNA vs RNA structure, base pairing, levels of DNA organization. High-yield for exam.", unit:"biochem", duration:"60 min" },
+          { id:"6-3", title:"Write summary sheets: physio topics covered", desc:"One page per physio topic this week. Diagrams welcome. These become your revision material.", unit:"physio", duration:"60 min" },
+          { id:"6-4", title:"Critical Thinking: Past questions x15", desc:"Continue past questions. Focus on question dissection — what is the question actually asking?", unit:"critical", duration:"40 min" },
+        ]
+      },
+      {
+        day: 7, name: "Day 7",
+        focus: "Week 1 review + plan Week 2",
+        tasks: [
+          { id:"7-1", title:"Active recall: All Week 1 anatomy", desc:"Write everything you know about week 1 anatomy topics without any notes. Then check and fill gaps.", unit:"anatomy", duration:"60 min" },
+          { id:"7-2", title:"Active recall: All Week 1 biochemistry", desc:"Same process for biochem. Write, check, fill.", unit:"biochem", duration:"45 min" },
+          { id:"7-3", title:"Past questions: Physiology x10", desc:"10 physio past questions. Mark confidence level on each answer.", unit:"physio", duration:"40 min" },
+          { id:"7-4", title:"Plan Week 2 — identify remaining gaps", desc:"Look at your past question performance. What topics are you still failing? Those lead Week 2.", unit:"critical", duration:"30 min" },
+        ]
+      },
+    ]
+  },
+
+  2: { // Week 2 — Depth
+    label: "Week 2 — Depth & Past Questions",
+    focus: "Go deeper on weak areas identified in Week 1. Heavy past question practice. All units progressing.",
+    days: [
+      {
+        day: 8, name: "Day 8",
+        focus: "Thorax anatomy + biochem metabolism",
+        tasks: [
+          { id:"8-1", title:"Anatomy: Scalp, face & parotid region", desc:"Layers of scalp (SCALP mnemonic), facial nerve branches, parotid gland relations. High yield.", unit:"anatomy", duration:"90 min" },
+          { id:"8-2", title:"Biochemistry: Lipid metabolism", desc:"Beta-oxidation, ketone bodies, fatty acid synthesis. Key enzymes. Past questions to guide depth.", unit:"biochem", duration:"75 min" },
+          { id:"8-3", title:"Physiology: Cardiac physiology", desc:"Cardiac cycle, heart sounds, pressure-volume loop, Frank-Starling law. Draw and label.", unit:"physio", duration:"60 min" },
+          { id:"8-4", title:"Faith & Healing: Second topic deep dive", desc:"Second highest-yield topic. Full summary sheet.", unit:"faith", duration:"40 min" },
+        ]
+      },
+      {
+        day: 9, name: "Day 9",
+        focus: "Infratemporal fossa + amino acids",
+        tasks: [
+          { id:"9-1", title:"Anatomy: Infratemporal fossa & PTG fossa", desc:"Contents, boundaries, nerve relations — especially CN V3 branches and chorda tympani.", unit:"anatomy", duration:"90 min" },
+          { id:"9-2", title:"Biochemistry: Amino acids & proteins", desc:"Essential amino acids, amino acid classification, peptide bond formation, isoelectric point.", unit:"biochem", duration:"60 min" },
+          { id:"9-3", title:"Physiology: Blood pressure regulation", desc:"Baroreceptors, RAAS, ANP. Short-term vs long-term regulation. Teach out loud.", unit:"physio", duration:"60 min" },
+          { id:"9-4", title:"Past questions: All units x20", desc:"Mixed 20 questions across all units. Simulate exam conditions — timed, no notes.", unit:"critical", duration:"45 min" },
+        ]
+      },
+      {
+        day: 10, name: "Day 10",
+        focus: "Ear & nose + nucleotides",
+        tasks: [
+          { id:"10-1", title:"Anatomy: Ear — external, middle, inner", desc:"Ossicles, oval/round windows, cochlea, CN VIII. Otitis media complications — clinical.", unit:"anatomy", duration:"90 min" },
+          { id:"10-2", title:"Anatomy: Nasal cavity & paranasal sinuses", desc:"Boundaries, meatuses, sinus drainage. Which sinus drains where — commonly examined.", unit:"anatomy", duration:"45 min" },
+          { id:"10-3", title:"Biochemistry: Nucleotides & DNA replication", desc:"Purines vs pyrimidines, DNA replication enzymes, semi-conservative replication.", unit:"biochem", duration:"60 min" },
+          { id:"10-4", title:"Physiology: Respiratory physiology", desc:"Lung volumes, V/Q ratio, oxygen dissociation curve, gas exchange. Draw all graphs.", unit:"physio", duration:"60 min" },
+        ]
+      },
+      {
+        day: 11, name: "Day 11",
+        focus: "Oral cavity + enzyme kinetics",
+        tasks: [
+          { id:"11-1", title:"Anatomy: Oral cavity, tongue & teeth", desc:"Tongue muscles (CN XII), taste innervation, salivary glands and their ducts.", unit:"anatomy", duration:"75 min" },
+          { id:"11-2", title:"Anatomy: Pharynx & larynx", desc:"Pharyngeal muscles, laryngeal cartilages, vocal folds, recurrent laryngeal nerve.", unit:"anatomy", duration:"60 min" },
+          { id:"11-3", title:"Biochemistry: Enzymes & kinetics", desc:"Michaelis-Menten, enzyme inhibition types, allosteric regulation. Km and Vmax meaning.", unit:"biochem", duration:"75 min" },
+          { id:"11-4", title:"Critical Thinking: Essay question practice", desc:"Write one full essay-style answer on a past critical thinking question. Time yourself — 20 minutes.", unit:"critical", duration:"35 min" },
+        ]
+      },
+      {
+        day: 12, name: "Day 12",
+        focus: "Dural sinuses + vitamins",
+        tasks: [
+          { id:"12-1", title:"Anatomy: Meninges & dural venous sinuses", desc:"Dural folds, venous sinuses, cavernous sinus and its contents — CN III, IV, V1, V2, VI, ICA.", unit:"anatomy", duration:"90 min" },
+          { id:"12-2", title:"Biochemistry: Fat-soluble vitamins A, D, E, K", desc:"Sources, functions, deficiency diseases. High yield — frequently examined.", unit:"biochem", duration:"60 min" },
+          { id:"12-3", title:"Biochemistry: Water-soluble vitamins B complex + C", desc:"B1, B2, B3, B6, B12, folate, C — deficiency diseases especially B12 and folate.", unit:"biochem", duration:"60 min" },
+          { id:"12-4", title:"Physiology: Renal physiology", desc:"GFR, tubular reabsorption, concentration mechanism, loop of Henle. Past questions focus.", unit:"physio", duration:"50 min" },
+        ]
+      },
+      {
+        day: 13, name: "Day 13",
+        focus: "Past questions heavy day",
+        tasks: [
+          { id:"13-1", title:"Anatomy: 20 past MCQs — timed", desc:"Timed, exam conditions. Every wrong answer explained in writing afterward.", unit:"anatomy", duration:"60 min" },
+          { id:"13-2", title:"Biochemistry: 20 past MCQs — timed", desc:"Same process. Wrong answers are your revision list.", unit:"biochem", duration:"60 min" },
+          { id:"13-3", title:"Physiology: 15 past MCQs — timed", desc:"Focus on topics you've covered. Note recurring question patterns.", unit:"physio", duration:"45 min" },
+          { id:"13-4", title:"Faith & Healing: Complete remaining topics", desc:"Finish any remaining F&H topics. Write summary for each.", unit:"faith", duration:"40 min" },
+        ]
+      },
+      {
+        day: 14, name: "Day 14",
+        focus: "Week 2 consolidation",
+        tasks: [
+          { id:"14-1", title:"Teach: Week 2 anatomy topics out loud", desc:"Full verbal recall. No notes. Everything from infratemporal fossa to dural sinuses.", unit:"anatomy", duration:"60 min" },
+          { id:"14-2", title:"Write master summary: Biochemistry", desc:"One condensed page per major biochem topic. This becomes your final week revision sheet.", unit:"biochem", duration:"60 min" },
+          { id:"14-3", title:"Physiology: Identify remaining weak areas", desc:"Review all physio past question performance. List topics still below 60% accuracy.", unit:"physio", duration:"45 min" },
+          { id:"14-4", title:"Mixed past questions: 25 questions all units", desc:"Full mixed simulation. Track score. This is your Week 2 baseline exam performance.", unit:"critical", duration:"50 min" },
+        ]
+      },
+    ]
+  },
+
+  3: { // Week 3 — Execution
+    label: "Week 3 — Execution & Simulation",
+    focus: "No new content. Consolidate, simulate, and lock in. Teach everything. Past questions only.",
+    days: [
+      {
+        day: 15, name: "Day 15",
+        focus: "Full anatomy revision",
+        tasks: [
+          { id:"15-1", title:"Anatomy: Complete head revision — teach out loud", desc:"All head topics: cranial nerves, orbit, ear, nose, oral cavity, pharynx, scalp, face. Full verbal run.", unit:"anatomy", duration:"90 min" },
+          { id:"15-2", title:"Anatomy: Complete neck revision", desc:"Triangles, fascia, ansa cervicalis, carotid sheath, thyroid, parathyroid.", unit:"anatomy", duration:"60 min" },
+          { id:"15-3", title:"Biochemistry: Full revision — master sheets only", desc:"Go through your Week 1-2 summary sheets. No textbook. If you can't recall something, mark it.", unit:"biochem", duration:"60 min" },
+          { id:"15-4", title:"Physiology: Cardiovascular + respiratory revision", desc:"Cardiac cycle, BP regulation, lung volumes, gas exchange. Teach both systems out loud.", unit:"physio", duration:"50 min" },
+        ]
+      },
+      {
+        day: 16, name: "Day 16",
+        focus: "Simulation day 1",
+        tasks: [
+          { id:"16-1", title:"Mock exam: Anatomy — 30 questions timed", desc:"Full simulation. Exam conditions. 30 minutes. No pausing.", unit:"anatomy", duration:"35 min" },
+          { id:"16-2", title:"Mock exam: Biochemistry — 30 questions timed", desc:"Same conditions.", unit:"biochem", duration:"35 min" },
+          { id:"16-3", title:"Review all wrong answers — both subjects", desc:"Every wrong answer: find it in your notes, understand why, write a one-line correction.", unit:"critical", duration:"60 min" },
+          { id:"16-4", title:"Physiology: Renal + nervous system revision", desc:"GFR, tubular function, action potentials, neuromuscular junction. Master sheets.", unit:"physio", duration:"50 min" },
+        ]
+      },
+      {
+        day: 17, name: "Day 17",
+        focus: "Gap filling day",
+        tasks: [
+          { id:"17-1", title:"Address top 5 anatomy weak areas", desc:"From your simulation results — the 5 topics you got wrong most. Deep focused revision on those only.", unit:"anatomy", duration:"90 min" },
+          { id:"17-2", title:"Address top 5 biochemistry weak areas", desc:"Same process.", unit:"biochem", duration:"75 min" },
+          { id:"17-3", title:"Faith & Healing: Full revision + past questions", desc:"Complete revision of all F&H topics. 10 past questions. This is easy marks — lock them in.", unit:"faith", duration:"50 min" },
+          { id:"17-4", title:"Critical Thinking: Strategy revision", desc:"Review question types — how to identify premises, conclusions, assumptions. Practice 10 questions.", unit:"critical", duration:"40 min" },
+        ]
+      },
+      {
+        day: 18, name: "Day 18",
+        focus: "Simulation day 2",
+        tasks: [
+          { id:"18-1", title:"Full mixed mock exam — 50 questions, timed", desc:"All 5 units mixed. 50 minutes. Exam conditions. This is your dress rehearsal.", unit:"critical", duration:"55 min" },
+          { id:"18-2", title:"Mark and review — every wrong answer explained", desc:"Don't just note what's wrong — understand the concept behind each correct answer.", unit:"critical", duration:"60 min" },
+          { id:"18-3", title:"Physiology: Final revision — all systems", desc:"Cardiovascular, respiratory, renal, nervous, muscle. Quick verbal recall of each.", unit:"physio", duration:"60 min" },
+          { id:"18-4", title:"Teach: All biochem pathways out loud", desc:"Glycolysis → Krebs → ETC. Beta-oxidation. Explain each one without notes.", unit:"biochem", duration:"40 min" },
+        ]
+      },
+      {
+        day: 19, name: "Day 19",
+        focus: "Final weak areas only",
+        tasks: [
+          { id:"19-1", title:"Final anatomy: Last remaining gaps only", desc:"From all simulation data — what are you still missing? Those topics only. Nothing new.", unit:"anatomy", duration:"75 min" },
+          { id:"19-2", title:"Final biochem: Last remaining gaps only", desc:"Same — gaps only. Master sheets for everything else.", unit:"biochem", duration:"60 min" },
+          { id:"19-3", title:"Final physio: Past questions x20", desc:"Pure past question practice. Track accuracy. Should be above 70% at this point.", unit:"physio", duration:"50 min" },
+          { id:"19-4", title:"Faith & Healing + Critical Thinking: Final pass", desc:"Quick final revision of both. 10 past questions each. Lock in the easy marks.", unit:"faith", duration:"40 min" },
+        ]
+      },
+      {
+        day: 20, name: "Day 20",
+        focus: "Light consolidation — no new work",
+        tasks: [
+          { id:"20-1", title:"Teach everything — verbal only, no notes", desc:"Full verbal walk-through of all units. Don't stop when you get stuck — push through, then note the gap.", unit:"anatomy", duration:"60 min" },
+          { id:"20-2", title:"Review summary sheets — read only, no writing", desc:"Skim all your master summary sheets. Passive review only. Let the brain consolidate.", unit:"biochem", duration:"45 min" },
+          { id:"20-3", title:"10 mixed past questions — relaxed pace", desc:"Not a simulation — just a light warm-up. Note your confidence level.", unit:"critical", duration:"30 min" },
+          { id:"20-4", title:"Sleep preparation — 9:30 PM lights out", desc:"Early sleep tonight. Tomorrow you need a sharp, rested brain. No last-minute cramming.", unit:"faith", duration:"—" },
+        ]
+      },
+      {
+        day: 21, name: "Day 21",
+        focus: "Exam day preparation",
+        tasks: [
+          { id:"21-1", title:"Morning: Light verbal recall — 30 mins only", desc:"Quick mental walk through key facts. No books, no notes. Just confidence building.", unit:"anatomy", duration:"30 min" },
+          { id:"21-2", title:"Review your top mnemonics and frameworks", desc:"Cranial nerves, SCALP, key metabolic pathways — the hooks that pull other memories.", unit:"biochem", duration:"20 min" },
+          { id:"21-3", title:"Eat a proper meal before the exam", desc:"Glucose is your brain's fuel. Don't walk into an exam hungry.", unit:"physio", duration:"—" },
+          { id:"21-4", title:"Walk in confident — you've done the work", desc:"Trust the system. Trust the 21 days. Your brain has the information. Let it out.", unit:"critical", duration:"—" },
+        ]
+      },
+    ]
+  }
+};
+
+// ── State & DB ────────────────────────────────────────────────────────────
+let state = {}, db, currentWeek = 1;
+const START_DATE = (() => {
+  // Store start date on first load
+  let sd = localStorage.getItem('study_start');
+  if (!sd) { sd = new Date().toISOString().split('T')[0]; localStorage.setItem('study_start', sd); }
+  return new Date(sd);
+})();
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('HillaryStudyDB', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('tasks')) d.createObjectStore('tasks', {keyPath:'id'});
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = () => reject();
+  });
+}
+
+function saveTask(id, done) {
+  db.transaction('tasks','readwrite').objectStore('tasks').put({id, done});
+}
+
+function loadAllTasks() {
+  return new Promise(resolve => {
+    const req = db.transaction('tasks','readonly').objectStore('tasks').getAll();
+    req.onsuccess = e => {
+      state = {};
+      (e.target.result || []).forEach(t => state[t.id] = t.done);
+      resolve();
+    };
+    req.onerror = () => resolve();
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function getDaysSinceStart() {
+  const now = new Date();
+  const diff = Math.floor((now - START_DATE) / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.min(diff, 20));
+}
+
+function getTodayDayNum() { return getDaysSinceStart() + 1; } // 1-based
+
+function getAllTasks() {
+  return Object.values(PLAN).flatMap(w => w.days.flatMap(d => d.tasks));
+}
+
+function updateStats() {
+  const all = getAllTasks();
+  const done = all.filter(t => state[t.id]).length;
+  const pct = Math.round((done / all.length) * 100);
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-total').textContent = all.length;
+  document.getElementById('stat-pct').textContent = pct + '%';
+
+  // Streak: consecutive days with at least one task done
+  let streak = 0;
+  for (let w = 1; w <= 3; w++) {
+    for (const day of PLAN[w].days) {
+      const anyDone = day.tasks.some(t => state[t.id]);
+      if (anyDone) streak++; else if (day.day < getTodayDayNum()) streak = 0;
+    }
+  }
+  document.getElementById('stat-streak').textContent = streak;
+}
+
+function updateDayCard(dayNum) {
+  const weekNum = dayNum <= 7 ? 1 : dayNum <= 14 ? 2 : 3;
+  const dayIndex = (dayNum - 1) % 7;
+  const tasks = PLAN[weekNum].days[dayIndex].tasks;
+  const done = tasks.filter(t => state[t.id]).length;
+  const pct = Math.round((done / tasks.length) * 100);
+  const card = document.getElementById(`day-card-${dayNum}`);
+  if (!card) return;
+  const fill = card.querySelector('.mini-fill');
+  const pctEl = card.querySelector('.mini-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function renderWeek(weekNum) {
+  const week = PLAN[weekNum];
+  const todayDay = getTodayDayNum();
+  const container = document.getElementById('weeks-container');
+  container.innerHTML = '';
+
+  const section = document.createElement('div');
+  section.className = `week-section week-${weekNum}`;
+
+  const header = document.createElement('div');
+  header.className = 'week-header';
+  header.innerHTML = `
+    <span class="week-badge">${['','Wk 1','Wk 2','Wk 3'][weekNum]}</span>
+    <span class="week-title">${week.focus}</span>
+    <div class="week-line"></div>`;
+  section.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'days-grid';
+
+  week.days.forEach(day => {
+    const isToday = day.day === todayDay;
+    const tasks = day.tasks;
+    const done = tasks.filter(t => state[t.id]).length;
+    const pct = Math.round((done / tasks.length) * 100);
+
+    const card = document.createElement('div');
+    card.className = `day-card${isToday ? ' today-card' : ''}${isToday ? ' expanded' : ''}`;
+    card.id = `day-card-${day.day}`;
+
+    card.innerHTML = `
+      <div class="day-header" onclick="toggleCard(this)">
+        <div class="day-num">${day.day}</div>
+        <div class="day-meta">
+          <div class="day-name">${day.name}${isToday ? ' · TODAY' : ''}</div>
+          <div class="day-focus">${day.focus}</div>
+        </div>
+        <div class="day-progress-mini">
+          <div class="mini-bar"><div class="mini-fill" style="width:${pct}%"></div></div>
+          <div class="mini-pct">${pct}%</div>
+        </div>
+        <div class="expand-icon">▼</div>
+      </div>
+      <div class="day-tasks">
+        ${tasks.map(task => `
+          <div class="task${state[task.id] ? ' done' : ''}" id="task-${task.id}" onclick="toggleTask('${task.id}', ${day.day})">
+            <div class="task-check">${state[task.id] ? '✓' : ''}</div>
+            <div class="task-body">
+              <div class="task-title">${task.title}</div>
+              <div class="task-desc">${task.desc}</div>
+              <span class="unit-pill pill-${task.unit}">${task.unit}</span>
+            </div>
+            <div class="task-duration">${task.duration}</div>
+          </div>`).join('')}
+        <div class="method-row">
+          <span class="method-tag">📝 Past questions</span>
+          <span class="method-tag">✍️ Summaries</span>
+          <span class="method-tag">🗣️ Teach out loud</span>
+        </div>
+      </div>`;
+
+    grid.appendChild(card);
+  });
+
+  section.appendChild(grid);
+  container.appendChild(section);
+}
+
+function toggleCard(header) {
+  const card = header.closest('.day-card');
+  card.classList.toggle('expanded');
+}
+
+function toggleTask(id, dayNum) {
+  state[id] = !state[id];
+  saveTask(id, state[id]);
+  const el = document.getElementById(`task-${id}`);
+  if (!el) return;
+  el.classList.toggle('done', state[id]);
+  el.querySelector('.task-check').textContent = state[id] ? '✓' : '';
+  el.querySelector('.task-check').classList.add('pop');
+  setTimeout(() => el.querySelector('.task-check')?.classList.remove('pop'), 200);
+  updateDayCard(dayNum);
+  updateStats();
+}
+
+function showWeek(num, btn) {
+  currentWeek = num;
+  document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWeek(num);
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────
+function renderCountdown() {
+  const daysGone = getDaysSinceStart();
+  const daysLeft = Math.max(0, 21 - daysGone);
+  document.getElementById('days-left').textContent = daysLeft;
+  document.getElementById('countdown-sub').textContent =
+    daysLeft === 0 ? 'Exam day — you\'ve got this' :
+    daysLeft === 1 ? 'One day left — light revision only' :
+    `${daysLeft} days remaining — stay the course`;
+
+  const dots = document.getElementById('days-dots');
+  dots.innerHTML = '';
+  for (let i = 0; i < 21; i++) {
+    const dot = document.createElement('div');
+    dot.className = `day-dot ${i < daysGone ? 'gone' : i === daysGone ? 'today' : 'remaining'}`;
+    dots.appendChild(dot);
+  }
+}
+
+// ── Auto-open today's week ─────────────────────────────────────────────────
+function autoNavigateToToday() {
+  const today = getTodayDayNum();
+  const weekNum = today <= 7 ? 1 : today <= 14 ? 2 : 3;
+  currentWeek = weekNum;
+  const btns = document.querySelectorAll('.phase-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  btns[weekNum - 1]?.classList.add('active');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function init() {
+  await initDB();
+  await loadAllTasks();
+  renderCountdown();
+  autoNavigateToToday();
+  renderWeek(currentWeek);
+  updateStats();
+}
+
+init();
+
+
+function downloadApp() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hillary-study-system.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+</script>
+</body>
+</html>
